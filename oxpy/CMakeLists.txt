@@ -4,11 +4,18 @@ SET(oxpy_SOURCES
 )
 
 IF(Python)
-	ADD_DEFINITIONS(-DPYTHON_BINDINGS)
-	FIND_PACKAGE( PythonLibs 3 REQUIRED )
-	INCLUDE_DIRECTORIES( ${PYTHON_INCLUDE_DIRS} )
-	
 	ADD_SUBDIRECTORY(pybind11)
+	ADD_DEFINITIONS(-DPYTHON_BINDINGS)
+	
+	if(CMAKE_VERSION VERSION_LESS "3.12")
+		FIND_PACKAGE( PythonLibs 3 REQUIRED )
+		FIND_PROGRAM( Python_EXECUTABLE "python3" )
+	else()
+		FIND_PACKAGE( Python 3 REQUIRED )
+	endif()
+	
+	INCLUDE_DIRECTORIES( ${PYTHON_INCLUDE_DIRS} )
+	MESSAGE(STATUS "The detected Python's include dirs are: ${PYTHON_INCLUDE_DIRS}" )
 	
 	INCLUDE_DIRECTORIES( ${PROJECT_SOURCE_DIR}/oxpy/pybind11/include )
 	INCLUDE_DIRECTORIES( ${PROJECT_SOURCE_DIR}/src )
@@ -26,38 +33,35 @@ IF(Python)
 	pybind11_add_module(core SHARED bindings.cpp)
 	TARGET_LINK_LIBRARIES(core PRIVATE _oxpy_lib)
 	
+	set(OXPY_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/python/oxpy")
+	
 	# the library should be in a folder with the same name to make it easier to use Python's distutils
 	SET_TARGET_PROPERTIES(core 
 		PROPERTIES 
 			SUFFIX ".so"
-			LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/oxpy"
+			LIBRARY_OUTPUT_DIRECTORY "${OXPY_OUTPUT_DIR}"
 	)
 	
 	# copy the files required to install the library with Python's distutils
 	CONFIGURE_FILE(__init__.py
-		${CMAKE_CURRENT_BINARY_DIR}/oxpy/__init__.py
+		${OXPY_OUTPUT_DIR}/__init__.py
 	)
 	
 	CONFIGURE_FILE(utils.py
-		${CMAKE_CURRENT_BINARY_DIR}/oxpy/utils.py
+		${OXPY_OUTPUT_DIR}/utils.py
 	)
 	
 	# read the whole defs.h file
 	FILE(READ ${PROJECT_SOURCE_DIR}/src/defs.h all_defs)
 	# extract the release version
 	STRING(REGEX MATCH "#define RELEASE \"([^\"]+)\"" _ ${all_defs})
-	SET(release ${CMAKE_MATCH_1})
-	CONFIGURE_FILE(__version__.py
-		${CMAKE_CURRENT_BINARY_DIR}/oxpy/__version__.py
-	)
-	MESSAGE(STATUS "Parsed release: ${release}")
+	SET(fallback_release ${CMAKE_MATCH_1})
+	MESSAGE(STATUS "Fallback release parsed from defs.h: ${fallback_release}")
 
-	SET(SETUP_PY "${CMAKE_CURRENT_BINARY_DIR}/oxpy/setup.py")
-	CONFIGURE_FILE(setup.py
-		${SETUP_PY}
+	CONFIGURE_FILE(make_install_setup.py
+		${OXPY_OUTPUT_DIR}/setup.py
 	)
 
-	# setup the make install target to run setup.py (in user mode, no root permissions required)
-	FIND_PROGRAM(PYTHON "python3")
-	INSTALL(CODE "execute_process(COMMAND ${PYTHON} ${SETUP_PY} install --user)")
+	# install the package
+	INSTALL(CODE "execute_process(COMMAND ${Python_EXECUTABLE} -m pip install ${OXPY_OUTPUT_DIR})")
 ENDIF(Python)
