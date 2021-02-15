@@ -6,11 +6,6 @@ SET(oxpy_SOURCES
 IF(Python)
 	ADD_SUBDIRECTORY(pybind11)
 	ADD_DEFINITIONS(-DPYTHON_BINDINGS)
-<<<<<<< HEAD
-	FIND_PACKAGE( Python 3 REQUIRED )
-	INCLUDE_DIRECTORIES( ${PYTHON_INCLUDE_DIRS} )
-	MESSAGE(STATUS ${PYTHON_INCLUDE_DIRS} )
-=======
 	
 	if(CMAKE_VERSION VERSION_LESS "3.12")
 		FIND_PACKAGE( PythonLibs 3 REQUIRED )
@@ -22,7 +17,6 @@ IF(Python)
 	INCLUDE_DIRECTORIES( ${PYTHON_INCLUDE_DIRS} )
 	MESSAGE(STATUS "The detected Python's include dirs are: ${PYTHON_INCLUDE_DIRS}" )
 	
->>>>>>> lorenzo-oxpy
 	INCLUDE_DIRECTORIES( ${PROJECT_SOURCE_DIR}/oxpy/pybind11/include )
 	INCLUDE_DIRECTORIES( ${PROJECT_SOURCE_DIR}/src )
 	
@@ -64,15 +58,6 @@ IF(Python)
 	SET(fallback_release ${CMAKE_MATCH_1})
 	MESSAGE(STATUS "Fallback release parsed from defs.h: ${fallback_release}")
 
-<<<<<<< HEAD
-	SET(OXPY_DIR "${CMAKE_CURRENT_BINARY_DIR}/oxpy")
-	CONFIGURE_FILE(setup.py
-		"${OXPY_DIR}/setup.py"
-	)
-
-	# setup the make install target to run setup.py (in user mode, no root permissions required)
-	INSTALL(CODE "execute_process(COMMAND ${Python_EXECUTABLE} -m pip install ${OXPY_DIR})")
-=======
 	CONFIGURE_FILE(make_install_setup.py
 		${OXPY_OUTPUT_DIR}/setup.py
 	)
@@ -84,5 +69,4 @@ IF(Python)
 		INSTALL(CODE "execute_process(COMMAND ${Python_EXECUTABLE} -m pip install --user ${OXPY_OUTPUT_DIR})")
 	endif()
 	
->>>>>>> lorenzo-oxpy
 ENDIF(Python)
