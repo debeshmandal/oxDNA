@@ -16,7 +16,18 @@ Compiling with CUDA support requires `cmake` >= 3.5 and a CUDA toolkit >= 9.0. I
 
 ### Python bindings
 
-Python bindings require `Python 3`'s binaries, libraries and include files. On Debian-derived distros these can be installed by installing the `libpython3-dev` package.
+The Python bindings are contained in the `oxpy` package, which can be installed either manually after compilation (see [Compiling oxDNA](#compiling-oxdna)) or directly with
+
+```bash
+git clone https://github.com/lorenzo-rovigatti/oxDNA.git
+cd oxDNA
+git checkout oxpy --
+pip install . # you may need to use pip3, depending on your OS, and the --user option to install in the current user's home directory
+```
+
+The GPU-enabled version can be installed by uncommenting the `#cuda = True` line in the `setup.cfg` file before calling `pip` or by appending `--global-option=build_ext --global-option='--cuda'` to the `pip install` command.
+
+Python bindings require the `setuptools` and `setuptools-scm` packages, as well as `Python 3`'s binaries, libraries and include files. On Debian-derived distros the latter can be installed by installing the `libpython3-dev` package.
 
 [Sphinx](https://www.sphinx-doc.org/en/master), [sphinx_rtd_theme](https://github.com/readthedocs/sphinx_rtd_theme) and [recommonmark](https://recommonmark.readthedocs.io/en/latest/) are required to generate the Python bindings' documentation. Those can all be installed by using `pip` (for instance with the command `pip3 install --user sphinx sphinx_rtd_theme recommonmark`).
 
@@ -24,11 +35,11 @@ Python bindings require `Python 3`'s binaries, libraries and include files. On D
 
 Generating the documentation of the C++ code (with `make docs`, see below) requires [doxygen](http://www.doxygen.nl/).
 
-Doc files for the Python bindings can be browsed by opening the `docs/oxpy/html/index.html` file with a web browser.
+The documentation for the Python bindings can be browsed [here](https://lorenzo-rovigatti.github.io/oxDNA/).
 
 ## Compiling oxDNA
 
-Extract the oxDNA archive and then:
+Clone the [repo](https://github.com/lorenzo-rovigatti/oxDNA.git) or extract the oxDNA archive and then:
 
 ```
 cd oxDNA         # enter the oxDNA folder
@@ -40,7 +51,7 @@ make -j4         # compile oxDNA. The -jX make option makes it compile the code 
 
 At the end of the compilation three executables (oxDNA, DNAnalysis and confGenerator) will be placed in the `build/bin` directory. 
 
-Compiling with Python bindings will also generate a `oxpy.so` library file in the `build/oxpy/oxpy` directory that can be imported in Python. Running `make install` will attempt to copy this library to the local user's module directory.
+Compiling with Python bindings will also generate an `oxpy` package in the `build/oxpy` directory that can be imported in Python. Running `make install` will attempt to copy the package to the `pip`'s module directory. The specific location will depend on your system's settings. We advise you to use [virtual environments](https://docs.python.org/3/tutorial/venv.html) (see *e.g.* [pipenv](https://docs.pipenv.org/)) to avoid conflicts with other packages and/or dependency and permission issues.
 
 ## `cmake` options
 
@@ -52,9 +63,13 @@ Compiling with Python bindings will also generate a `oxpy.so` library file in th
 * `-DMPI=ON` Compiles oxDNA with MPI support
 * `-DSIGNAL=OFF` Handling system signals is not always supported. Set this flag to OFF to remove this feature
 * `-DMOSIX=ON` Makes oxDNA compatible with MOSIX
-* `-DPython=ON` Enables Python bindings
 * `-DDOUBLE=OFF` Set the numerical precision of the CPU backends to `float`
 * `-DCUDA_DOUBLE=ON` Set the numerical precision of the CUDA backends to `double`, which is not compatible with the `mixed` precision.
+
+The following options pertain to `oxpy`:
+
+* `-DPython=ON` Enables Python bindings
+* `-DOxpySystemInstall=On` By default `oxpy` is installed in the current user's home directory. By enabling this option `oxpy` will be installed as a system-wide package. It may require superuser privileges.
 
 ## `make` targets
 
@@ -62,7 +77,7 @@ Compiling with Python bindings will also generate a `oxpy.so` library file in th
 * `make docs` Produces html doxygen documentation for oxDNA (`DOCS/html_oxDNA/index.html`) and for the UTILS folder (`DOCS/html_UTILS/index.html`)
 * `make rovigatti` Compiles the observables and interactions in contrib/rovigatti
 * `make romano` Compiles the observables and interactions in contrib/romano
-* `make install` Copies the `oxpy` library to the user's Python library folder
+* `make install` Copies the `oxpy` package to the Python's package folder
 	
 ## Testing
 
@@ -81,7 +96,7 @@ Most of the options that can be specified in the input file can be found in the 
 
 ### Python Bindings
 
-The API are still unstable, and only few features are exposed through this interface. A basic documentation can be accessed by browsing `docs/oxpy/html/index.html`.  
+The API are still unstable, and only few features are exposed through this interface. A basic documentation can be accessed by browsing online [here](https://lorenzo-rovigatti.github.io/oxDNA/) or `docs/oxpy/html/index.html` in the source tree.
 
 The following snippet shows a very simple example:
 
@@ -97,6 +112,9 @@ with oxpy.Context():
 
     # run 1k steps
     manager.run(1000)
+    
+    # change the temperature
+    manager.update_temperature(oxpy.utils.Celsius_to_oxDNA(45))
 
     # run 10k steps more
     manager.run(10000)
@@ -172,3 +190,17 @@ See also the doxygen documentation for `Observables/ObservableOutput.h`
 
 oxDNA provides a plugin infrastructure to manage additional 
 Observables. See the doxygen documentation for `PluginManagement/PluginManager.h`
+
+## Citing oxDNA
+
+Please cite these publications for any work that uses the oxDNA simulation package:
+
+- for the code:
+    * P. Šulc et al., J. Chem. Phys. 137, 135101 (2012)
+    * L. Rovigatti et al., J. Comput. Chem. 36, 1 (2015)
+- for the oxDNA model:
+    * T. E. Ouldridge et al., J. Chem. Phys, 134, 085101 (2011)
+- for the oxDNA2 model:
+    * B. E. K. Snodin et al., J. Chem. Phys. 142, 234901 (2015)
+- for the oxRNA model:
+    * P. Šulc et al., J. Chem. Phys. 140, 235102 (2014)

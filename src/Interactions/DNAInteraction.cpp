@@ -1,19 +1,20 @@
-#include <fstream>
-
 #include "DNAInteraction.h"
 #include "../Particles/DNANucleotide.h"
 
-DNAInteraction::DNAInteraction() :
-				BaseInteraction<DNAInteraction>(),
-				_average(true) {
-	_int_map[BACKBONE] = &DNAInteraction::_backbone;
-	_int_map[BONDED_EXCLUDED_VOLUME] = &DNAInteraction::_bonded_excluded_volume;
-	_int_map[STACKING] = &DNAInteraction::_stacking;
+#include <fstream>
+#include <cfloat>
 
-	_int_map[NONBONDED_EXCLUDED_VOLUME] = &DNAInteraction::_nonbonded_excluded_volume;
-	_int_map[HYDROGEN_BONDING] = &DNAInteraction::_hydrogen_bonding;
-	_int_map[CROSS_STACKING] = &DNAInteraction::_cross_stacking;
-	_int_map[COAXIAL_STACKING] = &DNAInteraction::_coaxial_stacking;
+DNAInteraction::DNAInteraction() :
+				BaseInteraction(),
+				_average(true) {
+	ADD_INTERACTION_TO_MAP(BACKBONE, _backbone);
+	ADD_INTERACTION_TO_MAP(BONDED_EXCLUDED_VOLUME, _bonded_excluded_volume);
+	ADD_INTERACTION_TO_MAP(STACKING, _stacking);
+
+	ADD_INTERACTION_TO_MAP(NONBONDED_EXCLUDED_VOLUME, _nonbonded_excluded_volume);
+	ADD_INTERACTION_TO_MAP(HYDROGEN_BONDING, _hydrogen_bonding);
+	ADD_INTERACTION_TO_MAP(CROSS_STACKING, _cross_stacking);
+	ADD_INTERACTION_TO_MAP(COAXIAL_STACKING, _coaxial_stacking);
 
 	F1_A[0] = HYDR_A;
 	F1_A[1] = STCK_A;
@@ -200,9 +201,9 @@ DNAInteraction::DNAInteraction() :
 		number lowlimit = cos(fmin(PI, F4_THETA_T0[i] + F4_THETA_TC[i]));
 
 		if(i != CXST_F4_THETA1)
-			_build_mesh(this, &DNAInteraction::_fakef4, &DNAInteraction::_fakef4D, (void*) (&i), points, lowlimit, upplimit, _mesh_f4[i]);
+			_mesh_f4[i].build([this](number x, void *args) { return this->_fakef4(x, args); }, [this](number x, void *args) { return _fakef4D(x, args); }, (void*) (&i), points, lowlimit, upplimit);
 		else {
-			_build_mesh(this, &DNAInteraction::_fakef4_cxst_t1, &DNAInteraction::_fakef4D_cxst_t1, (void*) (&i), points, lowlimit, upplimit, _mesh_f4[i]);
+			_mesh_f4[i].build([this](number x, void *args) { return this->_fakef4_cxst_t1(x, args); }, [this](number x, void *args) { return _fakef4D_cxst_t1(x, args); }, (void*) (&i), points, lowlimit, upplimit);
 		}
 		assert(lowlimit < upplimit);
 	}
@@ -216,7 +217,9 @@ DNAInteraction::DNAInteraction() :
 	_use_mbf = false;
 	_mbf_xmax = 0.f;
 	_mbf_fmax = 0.f;
-	_mbf_finf = 0.f; // roughly 2pN 
+	_mbf_finf = 0.f; // roughly 2pN
+
+	CONFIG_INFO->subscribe("T_updated", [this]() { this->_on_T_update(); });
 }
 
 DNAInteraction::~DNAInteraction() {
@@ -224,7 +227,7 @@ DNAInteraction::~DNAInteraction() {
 }
 
 void DNAInteraction::get_settings(input_file &inp) {
-	IBaseInteraction::get_settings(inp);
+	BaseInteraction::get_settings(inp);
 
 	int avg_seq;
 	if(getInputInt(&inp, "use_average_seq", &avg_seq, 0) == KEY_FOUND) {
@@ -276,6 +279,9 @@ void DNAInteraction::get_settings(input_file &inp) {
 		if(_mbf_finf < 0.f) {
 			throw oxDNAException("Cowardly refusing to run with a negative max_backbone_force_far");
 		}
+
+		// if we use mbf, we should tell the user
+		OX_LOG(Logger::LOG_INFO, "Using a maximum backbone force of %g  (the corresponding mbf_xmax is %g) and a far value of %g", _mbf_fmax, _mbf_xmax, _mbf_finf);
 	}
 }
 
@@ -286,8 +292,9 @@ void DNAInteraction::init() {
 	if(_grooving) {
 		rcutback = 2 * sqrt((POS_MM_BACK1) * (POS_MM_BACK1) + (POS_MM_BACK2) * (POS_MM_BACK2)) + EXCL_RC1;
 	}
-	else
+	else {
 		rcutback = 2 * fabs(POS_BACK) + EXCL_RC1;
+	}
 	number rcutbase = 2 * fabs(POS_BASE) + HYDR_RCHIGH;
 	_rcut = fmax(rcutback, rcutbase);
 	_sqr_rcut = SQR(_rcut);
@@ -324,7 +331,7 @@ void DNAInteraction::init() {
 			for(int j = 0; j < 4; j++) {
 				sprintf(key, "STCK_%c_%c", Utils::encode_base(i), Utils::encode_base(j));
 				getInputFloat(&seq_file, key, &tmp_value, 1);
-				F1_EPS[STCK_F1][i][j] = tmp_value * (1.0 - stck_fact_eps + (_T * 9.0 * stck_fact_eps)); //F1_EPS[STCK_F1][i][j] = tmp_value + stck_fact_eps * T;
+				F1_EPS[STCK_F1][i][j] = tmp_value * (1.0 - stck_fact_eps + (_T * 9.0 * stck_fact_eps));
 				F1_SHIFT[STCK_F1][i][j] = F1_EPS[STCK_F1][i][j] * SQR(1 - exp(-(STCK_RC - STCK_R0) * STCK_A));
 			}
 		}
@@ -335,7 +342,7 @@ void DNAInteraction::init() {
 				if(i == 4 || j == 4) {
 					sprintf(key, "STCK_%c_%c", Utils::encode_base(i), Utils::encode_base(j));
 					getInputFloat(&seq_file, key, &tmp_value, 0);
-					F1_EPS[STCK_F1][i][j] = tmp_value * (1.0 - stck_fact_eps + (_T * 9.0 * stck_fact_eps)); //F1_EPS[STCK_F1][i][j] = tmp_value + stck_fact_eps * T;
+					F1_EPS[STCK_F1][i][j] = tmp_value * (1.0 - stck_fact_eps + (_T * 9.0 * stck_fact_eps));
 					F1_SHIFT[STCK_F1][i][j] = F1_EPS[STCK_F1][i][j] * SQR(1 - exp(-(STCK_RC - STCK_R0) * STCK_A));
 				}
 			}
@@ -356,10 +363,14 @@ void DNAInteraction::init() {
 		F1_EPS[HYDR_F1][N_G][N_C] = F1_EPS[HYDR_F1][N_C][N_G] = tmp_value;
 		F1_SHIFT[HYDR_F1][N_G][N_C] = F1_SHIFT[HYDR_F1][N_C][N_G] = F1_EPS[HYDR_F1][N_G][N_C] * SQR(1 - exp(-(HYDR_RC - HYDR_R0) * HYDR_A));
 	}
+}
 
-	// if we use mbf, we should tell the user
-	if(_use_mbf)
-		OX_LOG(Logger::LOG_INFO, "Using a maximum backbone force of %g  (the corresponding mbf_xmax is %g) and a far value of %g", _mbf_fmax, _mbf_xmax, _mbf_finf);
+void DNAInteraction::_on_T_update() {
+	_T = CONFIG_INFO->temperature();
+	number T_in_C = _T * 3000 - 273.15;
+	number T_in_K = _T * 3000;
+	OX_LOG(Logger::LOG_INFO, "Temperature change detected (new temperature: %.2lf C, %.2lf K), re-initialising the DNA interaction", T_in_C, T_in_K);
+	init();
 }
 
 bool DNAInteraction::_check_bonded_neighbour(BaseParticle **p, BaseParticle **q, bool compute_r) {
@@ -423,8 +434,9 @@ number DNAInteraction::_backbone(BaseParticle *p, BaseParticle *q, bool compute_
 
 		// if not, we just do the right thing
 		energy = -(FENE_EPS / 2.f) * log(1.f - SQR(rbackr0) / FENE_DELTA2);
-		if(update_forces)
+		if(update_forces) {
 			force = rback * (-(FENE_EPS * rbackr0 / (FENE_DELTA2 - SQR(rbackr0))) / rbackmod);
+		}
 	}
 
 	if(update_forces) {
@@ -1389,8 +1401,9 @@ void DNAInteraction::check_input_sanity(std::vector<BaseParticle*> &particles) {
 			q->set_positions();
 			LR_vector rv = p->pos + p->int_centers[DNANucleotide::BACK] - (q->pos + q->int_centers[DNANucleotide::BACK]);
 			number r = sqrt(rv * rv);
-			if(r > maxd || r < mind)
+			if(r > maxd || r < mind) {
 				throw oxDNAException("Distance between bonded neighbors %d and %d exceeds acceptable values (d = %lf)", i, p->n3->index, r);
+			}
 		}
 
 		if(p->n5 != P_VIRTUAL) {
@@ -1398,8 +1411,9 @@ void DNAInteraction::check_input_sanity(std::vector<BaseParticle*> &particles) {
 			q->set_positions();
 			LR_vector rv = p->pos + p->int_centers[DNANucleotide::BACK] - (q->pos + q->int_centers[DNANucleotide::BACK]);
 			number r = sqrt(rv * rv);
-			if(r > maxd || r < mind)
+			if(r > maxd || r < mind) {
 				throw oxDNAException("Distance between bonded neighbors %d and %d exceeds acceptable values (d = %lf)", i, p->n5->index, r);
+			}
 		}
 	}
 }
@@ -1412,7 +1426,7 @@ void DNAInteraction::allocate_particles(std::vector<BaseParticle*> &particles) {
 
 void DNAInteraction::read_topology(int *N_strands, std::vector<BaseParticle*> &particles) {
 	int N_from_conf = particles.size();
-	IBaseInteraction::read_topology(N_strands, particles);
+	BaseInteraction::read_topology(N_strands, particles);
 	int my_N, my_N_strands;
 
 	char line[512];

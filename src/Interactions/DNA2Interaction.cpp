@@ -4,9 +4,8 @@
 
 DNA2Interaction::DNA2Interaction() :
 				DNAInteraction() {
-	_int_map[DEBYE_HUCKEL] = (number (DNAInteraction::*)(BaseParticle *p, BaseParticle *q, bool compute_r, bool update_forces)) &DNA2Interaction::_debye_huckel;
-	// I assume these are needed. I think the interaction map is used for when the observables want to print energy
-	_int_map[COAXIAL_STACKING] = (number (DNAInteraction::*)(BaseParticle *p, BaseParticle *q, bool compute_r, bool update_forces)) &DNA2Interaction::_coaxial_stacking;
+	ADD_INTERACTION_TO_MAP(DEBYE_HUCKEL, _debye_huckel);
+	ADD_INTERACTION_TO_MAP(COAXIAL_STACKING, _coaxial_stacking);
 
 	F2_K[1] = CXST_K_OXDNA2;
 
@@ -90,8 +89,9 @@ void DNA2Interaction::get_settings(input_file &inp) {
 	// notify the user that major-minor grooving is switched on
 	// check whether it's set in the input file to avoid duplicate messages
 	int tmp;
-	if(_grooving && (getInputBoolAsInt(&inp, "major_minor_grooving", &tmp, 0) != KEY_FOUND))
+	if(_grooving && (getInputBoolAsInt(&inp, "major_minor_grooving", &tmp, 0) != KEY_FOUND)) {
 		OX_LOG(Logger::LOG_INFO, "Using different widths for major and minor grooves");
+	}
 }
 
 void DNA2Interaction::init() {
@@ -148,7 +148,6 @@ void DNA2Interaction::init() {
 	OX_LOG(Logger::LOG_DEBUG,"Debye-Huckel parameters: Q=%f, lambda_0=%f, lambda=%f, r_high=%f, cutoff=%f", _debye_huckel_prefactor, _debye_huckel_lambdafactor, lambda, _debye_huckel_RHIGH, _rcut);
 	OX_LOG(Logger::LOG_DEBUG,"Debye-Huckel parameters: debye_huckel_RC=%e, debye_huckel_B=%e", _debye_huckel_RC, _debye_huckel_B);
 	OX_LOG(Logger::LOG_INFO,"The Debye length at this temperature and salt concentration is %f", lambda);
-
 }
 
 number DNA2Interaction::_debye_huckel(BaseParticle *p, BaseParticle *q, bool compute_r, bool update_forces) {

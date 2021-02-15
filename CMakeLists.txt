@@ -1,6 +1,8 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
-cmake_policy(SET CMP0054 NEW)
+if(POLICY CMP0054)
+	cmake_policy(SET CMP0054 NEW)
+endif()
 
 # this is required when working with newer gcc versions (> 5.4)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FORCE_INLINES")
@@ -15,7 +17,9 @@ OPTION(SIGNAL "Enable SignalManager - set to OFF for OSX compatibility" OFF)
 OPTION(DOUBLE "Set the numerical precision to double" ON)
 OPTION(CUDA_DOUBLE "Set the numerical precision for the CUDA backend to double" OFF)
 OPTION(CUDA_COMMON_ARCH "Set to OFF to autodetect the GPU and compile for its architecture, set to ON (default) to compile for the most common architectures" ON)
+
 OPTION(Python "Enable Python bindings" OFF)
+OPTION(OxpySystemInstall "Install oxpy as a system-wide package" OFF)
 
 # these operations have to be performed before PROJECT(oxDNA) or we will have problems at linking time
 if(INTEL)
@@ -95,7 +99,7 @@ ENDIF()
 
 IF(CUDA)
 	CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
-	FIND_PACKAGE("CUDA")
+	FIND_PACKAGE("CUDA" REQUIRED)
 	
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FORCE_INLINES")
 
@@ -135,6 +139,7 @@ ENDIF(MPI)
 FIND_PACKAGE(Git)
 IF(Git_FOUND)
 	EXECUTE_PROCESS(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE revision OUTPUT_STRIP_TRAILING_WHITESPACE)
+	EXECUTE_PROCESS(COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE tag OUTPUT_STRIP_TRAILING_WHITESPACE)
 ELSE()
 	SET(revision GIT_NOT_FOUND)
 ENDIF(Git_FOUND)
@@ -154,7 +159,7 @@ MACRO(CURRENT_DATE result)
 ENDMACRO(CURRENT_DATE)
 
 CURRENT_DATE(today)
-ADD_DEFINITIONS(-D'GIT_COMMIT="${revision}"' -D'BUILD_TIME="${today}"')
+ADD_DEFINITIONS(-D'RELEASE="${tag}"' -D'GIT_COMMIT="${revision}"' -D'BUILD_TIME="${today}"')
 
 # take care of the 'make docs' target in the makefile
 find_package(Doxygen)

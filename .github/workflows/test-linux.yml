@@ -21,4 +21,5 @@ jobs:
         popd
     - name: Run Simple Test Script
       run: |
-        bash ci/oxDNA-quick_input.sh
+        pushd build
+        make test_quick
