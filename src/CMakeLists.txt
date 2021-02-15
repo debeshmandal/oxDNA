@@ -98,6 +98,7 @@ SET(lists_SOURCES
 SET(interactions_SOURCES
 	Interactions/InteractionFactory.cpp
 	Interactions/InteractionUtils.cpp
+	Interactions/Mesh.cpp
 	Interactions/BaseInteraction.cpp
 	Interactions/LJInteraction.cpp
 	Interactions/DNAInteraction.cpp
@@ -186,6 +187,7 @@ SET(common_SOURCES
 	Utilities/time_scales/time_scales.cpp
 	Utilities/SignalManager.cpp
 	Utilities/ConfigInfo.cpp
+	Utilities/FlattenedConfigInfo.cpp
 	PluginManagement/PluginManager.cpp
 	${forces_SOURCES}
 	${observables_SOURCES}
